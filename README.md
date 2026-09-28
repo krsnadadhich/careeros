@@ -2,6 +2,17 @@
 
 A personal, self-hosted AI job-search command center. CareerOS syncs your Gmail, classifies every job-search-related email, extracts real job postings and application confirmations from them, tracks applications through a Kanban pipeline, scores job matches against your resume, and surfaces recruiters, interviews, tasks, and analytics — all backed by a real Postgres database, with a hybrid local-AI classification layer so your data doesn't have to leave your machine.
 
+<p align="center">
+  <img src="public/screenshots/overview.png" width="49%" alt="Overview dashboard" />
+  <img src="public/screenshots/jobs.png" width="49%" alt="Jobs list with quality signal badges" />
+</p>
+<p align="center">
+  <img src="public/screenshots/applications.png" width="49%" alt="Applications Kanban board" />
+  <img src="public/screenshots/analytics.png" width="49%" alt="Analytics dashboard" />
+</p>
+
+*(Screenshots use fictional demo data — no real personal or job-search data is included in this repo.)*
+
 ## Why
 
 Most job trackers are either a spreadsheet you maintain by hand, or a SaaS product that wants your inbox data on its servers. CareerOS is neither: it runs locally, reads only the Gmail account you connect, and never submits an application anywhere on your behalf — it records what's already happened and helps you decide what to do next.
