@@ -1,0 +1,353 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------- Auth.js required models ----------
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ---------- Core domain ----------
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts Account[]
+  sessions Session[]
+
+  resumes          Resume[]
+  candidateProfile CandidateProfile?
+  emails           Email[]
+  jobs             Job[]
+  jobMatches       JobMatch[]
+  applications     Application[]
+  interviews       Interview[]
+  recruiters       Recruiter[]
+  tasks            Task[]
+  skills           Skill[]
+  dailyBriefs      DailyBrief[]
+  gmailSync        GmailSync?
+}
+
+model Resume {
+  id         String   @id @default(cuid())
+  userId     String
+  fileName   String
+  fileUrl    String?
+  version    Int      @default(1)
+  rawText    String?  @db.Text
+  parsedJson Json?
+  isPrimary  Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model CandidateProfile {
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  headline         String?
+  yearsExperience  Int?
+  targetRoles      String[]
+  targetLocations  String[]
+  skills           String[]
+  excludedKeywords String[] @default([])
+  minSalary        Int?
+  maxSalary        Int?
+  remoteOnly       Boolean  @default(false)
+  updatedAt        DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+enum EmailCategory {
+  JOBS
+  RECRUITERS
+  INTERVIEWS
+  ASSESSMENTS
+  OFFERS
+  REJECTION
+  OTHER
+}
+
+enum EmailPriority {
+  HIGH
+  MEDIUM
+  LOW
+  CRITICAL
+}
+
+model Email {
+  id              String        @id @default(cuid())
+  userId          String
+  gmailMessageId  String?       @unique
+  gmailThreadId   String?
+  sender          String
+  senderEmail     String?
+  subject         String
+  snippet         String?       @db.Text
+  bodyText        String?       @db.Text
+  category        EmailCategory @default(OTHER)
+  priority        EmailPriority @default(LOW)
+  importanceScore Int?
+  aiSummary       String?       @db.Text
+  extractedData   Json?
+  extractedLink   String?       @db.Text
+  actionRequired  Boolean       @default(false)
+  receivedAt      DateTime?
+  createdAt       DateTime      @default(now())
+
+  classificationSource     String?
+  classificationConfidence Float?
+
+  applicationSuggestionDismissed Boolean @default(false)
+  interviewSuggestionDismissed   Boolean @default(false)
+
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  job         Job?       @relation(fields: [jobId], references: [id])
+  jobId       String?
+  recruiter   Recruiter? @relation(fields: [recruiterId], references: [id])
+  recruiterId String?
+  interviews  Interview[]
+
+  @@index([userId])
+  @@index([gmailThreadId])
+}
+
+model GmailSync {
+  id              String    @id @default(cuid())
+  userId          String    @unique
+  historyId       String?
+  lastSyncedAt    DateTime?
+  lastSyncStatus  String    @default("never")
+  lastSyncError   String?   @db.Text
+  emailsProcessed Int       @default(0)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+enum JobSource {
+  LINKEDIN
+  INDEED
+  ADZUNA
+  COMPANY_WEBSITE
+  OTHER
+}
+
+model Job {
+  id          String    @id @default(cuid())
+  userId      String
+  role        String
+  company     String
+  location    String?
+  fingerprint String
+  salaryMin   Int?
+  salaryMax   Int?
+  currency    String?   @default("INR")
+  remote      Boolean   @default(false)
+  source      JobSource @default(OTHER)
+  sourceUrl   String?
+  description String?   @db.Text
+  postedAt    DateTime?
+  saved       Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  applicationBrief            String?   @db.Text
+  applicationBriefGeneratedAt DateTime?
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  match        JobMatch?
+  applications Application[]
+  emails       Email[]
+
+  @@unique([userId, fingerprint])
+  @@index([userId])
+}
+
+model JobMatch {
+  id              String   @id @default(cuid())
+  userId          String
+  jobId           String   @unique
+  overallScore    Int
+  skillsScore     Int
+  experienceScore Int
+  roleScore       Int
+  locationScore   Int      @default(0)
+  locationLabel   String?
+  matchedSkills   String[]
+  missingSkills   String[]
+  requiredSkills  String[] @default([])
+  rationale       String?  @db.Text
+  computedAt      DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  job  Job  @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+enum ApplicationStatus {
+  SAVED
+  APPLIED
+  SCREENING
+  INTERVIEW
+  TECHNICAL
+  HR
+  OFFER
+  REJECTED
+  WITHDRAWN
+}
+
+model Application {
+  id               String            @id @default(cuid())
+  userId           String
+  jobId            String
+  status           ApplicationStatus @default(SAVED)
+  appliedAt        DateTime?
+  lastActivityAt   DateTime?
+  lastActivityNote String?
+  nextAction       String?
+  nextActionDue    DateTime?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  suggestedStatus      ApplicationStatus?
+  suggestedReason      String?            @db.Text
+  suggestedFromEmailId String?
+  suggestedAt          DateTime?
+  lastIgnoredStatus    ApplicationStatus?
+
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  job        Job         @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  interviews Interview[]
+
+  @@index([userId])
+  @@index([jobId])
+}
+
+model Interview {
+  id            String    @id @default(cuid())
+  userId        String
+  applicationId String
+  type          String?
+  scheduledAt   DateTime?
+  location      String?
+  notes         String?   @db.Text
+  prepNotes     String?   @db.Text
+  completed     Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  sourceEmailId String?
+
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  sourceEmail Email?      @relation(fields: [sourceEmailId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+}
+
+model Recruiter {
+  id              String    @id @default(cuid())
+  userId          String
+  name            String
+  email           String?
+  company         String?
+  lastContactedAt DateTime?
+  notes           String?   @db.Text
+  createdAt       DateTime  @default(now())
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emails Email[]
+
+  @@index([userId])
+}
+
+model Task {
+  id          String    @id @default(cuid())
+  userId      String
+  title       String
+  description String?   @db.Text
+  dueAt       DateTime?
+  completed   Boolean   @default(false)
+  source      String?
+  createdAt   DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Skill {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  have      Boolean  @default(true)
+  frequency Int?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, name])
+}
+
+model DailyBrief {
+  id              String   @id @default(cuid())
+  userId          String
+  date            DateTime @default(now())
+  lines           String[]
+  recommendations String[]
+  createdAt       DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+  @@index([userId])
+}
